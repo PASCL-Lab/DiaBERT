@@ -1,9 +1,0 @@
-flask
-flask-cors
-numpy
-torch
-onnxruntime
-transformers
-sentence-transformers
-transformers-interpret
-openai
