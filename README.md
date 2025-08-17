@@ -1,16 +1,142 @@
-DiaBERT: Combating Diabetes Misinformation Using Transformer-Based Models Project Overview DiaBERT is an end-to-end misinformation detection system tailored to diabetes-related content. Built on the BioBERT transformer model and enhanced through domain adaptation (DANN), DiaBERT classifies online health claims into True, False, or Partially True. It is deployed as a Chrome extension that provides real-time credibility classification and explanation for users encountering health-related content online. Key Features • Transformer Backbone: Built on BioBERT (a BERT model pre-trained on biomedical corpora) • Domain Adaptation: Implemented DANN (Domain-Adversarial Neural Network) to adapt from formal (medical) to informal (social media) domains • Three-Class Classification: True, False, Partially True • Content Filtering: SBERT + Cosine Similarity to filter only diabetes-related input • Explainability: Worked with LIME, SHAP, and Transformers Interpret with final choice being Transformers Interpret due to alignment with transformer architecture • Deployment: Real-time Chrome Extension using ONNX-optimized BioBERT model via Flask API hosted on Fly.io Dataset
+DiaBERT: Combating Diabetes Misinformation Using Transformer-Based Models
+Project Overview
 
-Formal Dataset: o Derived from the DETERRENT dataset o 2269 diabetes-related claims (True: 1661, False: 608)
-Informal Dataset: o Curated from Facebook, Twitter (X), and Reddit o Manually annotated into 3 classes (True, False, Partially True) o 902 diabetes-related claims (True:575, False:167, Partially True:160) o Texts underwent preprocessing: normalization, unicode correction, contraction expansion, emoji/URL filtering Model Pipeline
+DiaBERT is an end-to-end misinformation detection system tailored to diabetes-related content.
+Built on the BioBERT transformer model and enhanced through Domain-Adversarial Neural Networks (DANN), DiaBERT classifies online health claims into:
+
+True
+
+False
+
+Partially True
+
+It is deployed as a Chrome Extension that provides real-time credibility classification and explanations for users encountering health-related content online.
+
+
+Key Features
+
+Transformer Backbone: BioBERT (pre-trained on biomedical corpora)
+
+Domain Adaptation: DANN to adapt from formal (medical) to informal (social media) domains
+
+Three-Class Classification: True, False, Partially True
+
+Content Filtering: SBERT + cosine similarity to filter only diabetes-related input
+
+Explainability: Token-level highlights via Transformers Interpret (attention + integrated gradients)
+
+Deployment: Real-time Chrome Extension calling an ONNX-optimized BioBERT model hosted on Fly.io
+
+
+
+Dataset
+
+Formal Dataset (DETERRENT):
+
+2,269 diabetes-related claims
+
+True: 1,661 | False: 608
+
+Informal Dataset (social media: Facebook, Twitter/X, Reddit):
+
+902 diabetes-related claims
+
+True: 520 | False: 213 | Partially True: 163
+
+Manually annotated and preprocessed (normalization, contraction expansion, emoji/URL filtering, unicode correction)
+
+
+
+Model Pipeline
+
 Stage 1: Supervised fine-tuning of BioBERT on formal two-class data
-Stage 2: Domain Adaptation using DANN — encoder learns invariant features between formal and informal domains
-Stage 3: Final supervised fine-tuning on informal three-class data Content Filtering (SBERT + Cosine Similarity) • SBERT model: all-MiniLM-L6-v2 • Averaged embedding vector created from diabetes domain corpus • Queries must pass a cosine similarity threshold (> 0.7) to be considered “in-domain” Explainability • Tried: SHAP, LIME, Transformers Interpret • Chosen: Transformers Interpret (attention-based saliency, integrated gradients) o Highlights tokens contributing to prediction o Easily integrates into the transformer pipeline o Works well with subword tokenization
-Deployment • Backend: Flask API o Predict endpoint: /predict o Health check: /ping o Includes SBERT filtering and explanation generation (GPT or template) o Deployed via Fly.io, optimized with ONNX for faster inference • Frontend: Chrome Extension o User selects or enters text o Calls /predict endpoint o Receives classification + explanation o Feedback rendered within browser popup
 
-Sample Use Case User visits a blog post that claims: “bitter leaf cures diabetes completely.” • DiaBERT classifies it as False • Highlights tokens: “cures”, “completely” • Explanation: “The claim suggests a definitive cure without scientific support. Bitter leaf may help regulate blood sugar but is not a standalone treatment.” Resources • Extension: https://chromewebstore.google.com/detail/diabert-classifier/pkccflhgplpbmoglflfjhhlnpdjbblpk?authuser=0&hl=en-GB
+Stage 2: Domain adaptation via DANN — encoder learns domain-invariant features
 
-• Code, datasets, and training scripts
+Stage 3: Supervised fine-tuning on informal three-class dataset
 
-Future Work • Expand dataset to include non-English and multilingual claims • Extend DiaBERT to cover other chronic illnesses (e.g., asthma, hypertension) • Evaluate model bias and build user-centric explanation toggles
 
-License This project is released under the MIT License.
+
+Content Filtering (SBERT + Cosine Similarity)
+
+Model: all-MiniLM-L6-v2
+
+Diabetes domain embedding vector created from domain corpus
+
+User input must exceed cosine similarity > 0.7 to be considered “in-domain”
+
+
+
+Explainability
+
+Explored: LIME, SHAP, Transformers Interpret
+
+Chosen: Transformers Interpret
+
+Highlights tokens driving the prediction
+
+Works seamlessly with transformers + subword tokenization
+
+Provides attention saliency + integrated gradients
+
+
+
+Deployment
+Backend (Flask API on Fly.io)
+
+Endpoint: /predict → returns classification + explanation
+
+Health check: /ping
+
+SBERT filtering + explanation generation (template/GPT-based)
+
+ONNX optimization for faster inference
+
+
+
+Frontend (Chrome Extension)
+
+Users can:
+
+Manually enter text into the extension popup.
+
+Highlight text on any webpage → when the popup is opened, the highlighted snippet is automatically prefilled.
+
+Both methods allow the user to hit “Classify” and instantly get:
+
+Prediction (True / False / Partially True)
+
+Token-level highlights
+
+Human-readable explanation
+
+Sample Use Case
+
+Blog post claims:
+
+“Bitter leaf cures diabetes completely.”
+
+DiaBERT output: False
+
+Token highlights: “cures”, “completely”
+
+Explanation:
+“The claim suggests a definitive cure without scientific support. Bitter leaf may help regulate blood sugar but is not a standalone treatment.”
+
+
+
+Resources
+
+Extension (Chrome Web Store): https://chromewebstore.google.com/detail/diabert-classifier/pkccflhgplpbmoglflfjhhlnpdjbblpk?authuser=0&hl=en-GB
+
+Code, datasets, and training scripts:https://github.com/PASCL-Lab/DiaBERT
+
+
+
+Future Work
+
+Expand dataset to multilingual claims (non-English)
+
+Extend DiaBERT to other chronic illnesses (asthma, hypertension)
+
+Evaluate demographic bias and add user-centric explanation toggles
