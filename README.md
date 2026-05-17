@@ -1,172 +1,151 @@
-# DiaBERT: Combating Diabetes Misinformation Using Transformer-Based Models
+# DiaBERT
 
-## Project Overview
-DiaBERT is an end-to-end misinformation detection system tailored to diabetes-related content.  
-Built on the BioBERT transformer model and enhanced through domain adaptation (DANN), DiaBERT classifies online health claims into **True, False, or Partially True**.  
-It is deployed as a **Chrome extension** that provides real-time credibility classification and explanation for users encountering health-related content online.
+> Domain-adapted transformer pipeline for detecting diabetes-related health misinformation, delivered as a real-time Chrome extension.
 
----
+## Overview
 
-## Key Features
-- **Transformer Backbone**: Built on BioBERT (a BERT model pre-trained on biomedical corpora)  
-- **Domain Adaptation**: Implemented DANN (Domain-Adversarial Neural Network) to adapt from formal (medical) to informal (social media) domains  
-- **Three-Class Classification**: True, False, Partially True  
-- **Content Filtering**: SBERT + Cosine Similarity to filter only diabetes-related input  
-- **Explainability**: Worked with LIME, SHAP, and Transformers Interpret (final choice: Transformers Interpret for alignment with transformer architecture)  
-- **Deployment**: Real-time Chrome Extension using ONNX-optimized BioBERT model via Flask API hosted on Fly.io  
+DiaBERT is an end-to-end misinformation-detection system specialised for diabetes-related claims encountered on the open web. It is built on the BioBERT transformer, fine-tuned in stages on both formal medical claims (derived from DETERRENT) and informal, socially sourced claims (Facebook, X, Reddit), and bridged between the two distributions using a Domain-Adversarial Neural Network (DANN). The deployed model produces a three-class verdict — **True**, **False**, or **Partially True** — restricted to in-domain text by an SBERT cosine-similarity gate. Predictions are accompanied by token-level attributions from Transformers Interpret so that users see which terms drove the decision. The repository contains the full training and evaluation notebooks, the SBERT content filter, the ONNX-quantised production model, a Flask backend deployable to Fly.io, the published Chrome extension, the curated datasets, and the user-evaluation survey artefacts.
 
----
+## Research Context
 
-## Dataset
-1. **Formal Dataset**  
-   - Derived from the DETERRENT dataset  
-   - 2269 diabetes-related claims (True: 1661, False: 608)  
+DiaBERT investigates whether biomedical transformers fine-tuned on formal medical literature can be adapted, via adversarial domain alignment, to the noisy register of social-media health claims. The companion documentation lives in `DiaBERT_ Readme.docx`; this repository accompanies that write-up with all code, datasets, and evaluation material.
 
-2. **Informal Dataset**  
-   - Curated from Facebook, Twitter (X), and Reddit  
-   - Manually annotated into 3 classes (True, False, Partially True)  
-   - 902 diabetes-related claims (True: 575, False: 167, Partially True: 160)  
-   - Preprocessing included normalization, unicode correction, contraction expansion, emoji/URL filtering  
+## Features
 
----
+- Three-class classification (True / False / Partially True) of short diabetes-related claims
+- BioBERT backbone fine-tuned in three stages with DANN-based domain adaptation
+- SBERT (`all-MiniLM-L6-v2`) + cosine-similarity gate (threshold > 0.7) to reject out-of-domain input
+- Token-level explanations via Transformers Interpret (integrated gradients) compatible with subword tokenisation
+- ONNX-exported model for low-latency CPU inference behind a Flask API
+- Production Chrome extension (published on the Chrome Web Store) for real-time, in-browser analysis
+- User-evaluation survey data and analysis notebook
 
-## Model Pipeline
-1. **Stage 1**: Supervised fine-tuning of BioBERT on formal two-class data  
-2. **Stage 2**: Domain Adaptation using DANN — encoder learns invariant features between formal and informal domains  
-3. **Stage 3**: Final supervised fine-tuning on informal three-class data  
+## Architecture
 
----
+The classifier follows a three-stage training pipeline:
 
-## Content Filtering (SBERT + Cosine Similarity)
-- SBERT model: `all-MiniLM-L6-v2`  
-- Averaged embedding vector created from diabetes domain corpus  
-- Queries must pass a cosine similarity threshold (> 0.7) to be considered “in-domain”  
+1. **Supervised fine-tuning** of BioBERT on the formal DETERRENT-derived two-class corpus (1,661 True / 608 False).
+2. **Domain adaptation** with a DANN head so the encoder learns features invariant between the formal and informal domains.
+3. **Final fine-tuning** on the informal three-class corpus (575 True / 167 False / 160 Partially True) curated from Facebook, X, and Reddit and preprocessed with unicode normalisation, contraction expansion, and emoji/URL filtering.
 
----
+At inference time the input is first embedded by SBERT and compared against an averaged diabetes-domain embedding; only queries passing the similarity threshold are routed to the BioBERT classifier (exported to ONNX and served via ONNX Runtime). Integrated-gradients attributions are computed on the PyTorch checkpoint and surfaced alongside the class probabilities. Explainability alternatives (LIME, SHAP) were evaluated during development; Transformers Interpret was selected for its alignment with the transformer attention structure.
 
-## Explainability
-- **Tried**: SHAP, LIME, Transformers Interpret  
-- **Chosen**: Transformers Interpret  
-  - Attention-based saliency, integrated gradients  
-  - Highlights tokens contributing to prediction  
-  - Works seamlessly with subword tokenization  
+## Tech Stack
 
----
+- **Modeling:** PyTorch, Hugging Face Transformers (BioBERT), sentence-transformers, Transformers Interpret
+- **Inference / Optimisation:** ONNX, ONNX Runtime
+- **Backend:** Flask, Flask-CORS, OpenAI SDK (optional explanation generation)
+- **Frontend:** Chrome Extension (Manifest V3) with Chart.js visualisations
+- **Deployment:** Docker, Fly.io
 
-## Deployment
+## Getting Started
 
-### Backend (Flask API on Fly.io)
-- Endpoints:  
-  - `/predict` → main prediction route  
-  - `/ping` → health check  
-- Includes SBERT filtering and explanation generation  
-- Deployed via Fly.io with ONNX for faster inference  
+### Prerequisites
 
-**Steps to Deploy on Fly.io (Windows example):**
+- Python 3.10+
+- Google Chrome (for the extension)
+- Docker (for the containerised backend)
+- Optional: Fly.io CLI (`flyctl`) for cloud deployment
+- Optional: OpenAI API key (if natural-language explanations are enabled)
 
-1. **Install Flyctl**  
-   - Download from [Fly.io Download](https://fly.io/docs/hands-on/installing/)  
-   - Unzip into `C:\flyctl\`  
-   - Run `C:\flyctl\flyctl.exe version` to confirm installation  
-   - Authenticate:  
-     ```bash
-     C:\flyctl\flyctl.exe auth login
-     ```
+### Installation
 
-2. **Navigate to project folder**  
-   ```bash
-   cd "C:\Users\linda\OneDrive\Desktop\DiaBERT_Backend"
-Your backend folder should contain:
+```bash
+git clone https://github.com/PASCL-Lab/DiaBERT.git
+cd DiaBERT/DiaBERT_Backend
+pip install -r requirements.txt
+```
 
-app.py
+The backend expects the following artefacts alongside `app.py`:
 
-Model files (newbiobert_finetuned_3class.onnx, combined_embeddings.pt, combined_texts.pt, newbiobert_model_3class/newbiobert_model_3class/pytorch_model.bin)
+- `newbiobert_finetuned_3class.onnx` — quantised classifier
+- `combined_embeddings.pt`, `combined_texts.pt` — SBERT domain reference
+- `../newbiobert_model_3class/newbiobert_model_3class/pytorch_model.bin` — PyTorch checkpoint for attributions
 
-requirements.txt
+### Running
 
-Dockerfile
+#### Inference / API (local)
 
-fly.toml (auto-generated by Fly.io)
+```bash
+cd DiaBERT_Backend
+flask --app app run --host 0.0.0.0 --port 8080
+```
 
-.dockerignore (optional, to keep builds clean)
+Endpoints:
+- `POST /predict` — classify a claim and return probabilities + token attributions
+- `GET /ping` — health check
 
-3. **Create a Fly app (no deploy yet)** 
-   C:\flyctl\flyctl.exe launch --no-deploy
+#### Inference / API (Docker)
 
-4. **(Optional) Set secrets** 
-   C:\flyctl\flyctl.exe secrets set OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxx
+```bash
+cd DiaBERT_Backend
+docker build -t diabert-backend .
+docker run --rm -p 8080:8080 diabert-backend
+```
 
-5. **Deploy the app**
-   C:\flyctl\flyctl.exe deploy
-   
-Once complete, you’ll get a live URL, e.g.:
-   https://diabert.fly.dev
+#### Deploy to Fly.io
 
---- 
+```bash
+cd DiaBERT_Backend
+flyctl auth login
+flyctl launch --no-deploy            # first time only
+flyctl secrets set OPENAI_API_KEY=sk-...   # optional
+flyctl deploy
+```
 
-## Frontend (Chrome Extension)
+#### Training
 
-### How to Load the DiaBERT Chrome Extension:
+Training, ablation, and evaluation experiments are provided as notebooks under `Training and evaluation scripts/`:
 
-1. Clone or Download this repository
+```bash
+jupyter notebook "Training and evaluation scripts/"
+# Key notebooks:
+#   Final Training pipeline(DiaBERT).ipynb
+#   BioBERT +DANN.ipynb
+#   BioBERT+ CORAL.ipynb
+#   Experimentation pipeline with BioBERT, Bilstm and BERT.ipynb
+#   SBERT plus cosine similarity.ipynb
+#   Using transformer interprete for explainability.ipynb
+```
 
-   If downloaded as a ZIP, unzip it first
+#### Browser Extension
 
-2. Ensure your extension folder contains:
+1. Start the backend (locally or via Fly.io) and update the request URL in `DiaBERT_Chrome/popup.js` if needed.
+2. Open `chrome://extensions/` in Chrome.
+3. Enable **Developer mode** (top-right toggle).
+4. Click **Load unpacked** and select the `DiaBERT_Chrome/` directory.
+5. The DiaBERT icon will appear in the toolbar.
 
-DiaBERT_Chrome/
-├── manifest.json
-├── background.js
-├── chart.js
-├── content-script.js
-├── popup.html
-├── popup.js
-├── README.md
-└── icons/
-    ├── icon16.png
-    ├── icon48.png
-    └── icon128.png
+The released build is available on the Chrome Web Store: https://chromewebstore.google.com/detail/diabert-classifier/pkccflhgplpbmoglflfjhhlnpdjbblpk
 
-3. Open Chrome and navigate to:
-   chrome://extensions
-4. Enable Developer mode (top right).
+## Project Structure
 
-5. Click Load unpacked.
-
-6. Select the DiaBERT_Chrome folder.
-
-7. The DiaBERT extension will now appear in your browser toolbar
-
----
-
-## Sample Use Case
-Blog post: *“Bitter leaf cures diabetes completely.”*  
-
-- **DiaBERT output**: `False`  
-- **Highlighted tokens**: `cures`, `completely`  
-- **Explanation**:  
-  > The claim suggests a definitive cure without scientific support.  
-  > Bitter leaf may help regulate blood sugar but is not a standalone treatment.  
-
----
-
-## Resources
-- [DiaBERT Chrome Extension](https://chromewebstore.google.com/detail/diabert-classifier/pkccflhgplpbmoglflfjhhlnpdjbblpk?authuser=0&hl=en-GB)  
-- Code, datasets, and training scripts  
-
----
-
-## Future Work
-- Expand dataset to include non-English and multilingual claims  
-- Extend DiaBERT to cover other chronic illnesses (e.g., asthma, hypertension)  
-- Evaluate model bias and build user-centric explanation toggles  
-
----
+```
+DiaBERT_Backend/                                # Flask + ONNX inference service
+  app.py
+  Dockerfile
+  fly.toml
+  requirements.txt
+DiaBERT_Chrome/                                 # Manifest V3 Chrome extension
+  manifest.json
+  popup.html / popup.js
+  background.js
+  content-script.js
+  chart.js
+  icons/
+newbiobert_model_3class/                        # Fine-tuned BioBERT PyTorch checkpoint
+Datasets/
+  Diabetes_cleaned.csv                          # Formal corpus (DETERRENT-derived)
+  Corrected_Labeled(Informal dataset).csv       # Informal three-class corpus
+Training and evaluation scripts/                # Training, DANN/CORAL, and explainability notebooks
+DiaBERT_Extension_Evaluation/                   # User-study survey, responses, and analysis
+DiaBERT_ Readme.docx                            # Detailed methodology write-up
+```
 
 ## License
-This project is released under the **MIT License**.
 
+This project is the intellectual property of **PASCL Lab**. All rights reserved.
 
+Unauthorized copying, distribution, modification, or use of this codebase, in whole or in part, is strictly prohibited without prior written permission from PASCL Lab.
 
-
-   
+(c) 2026 PASCL Lab. All rights reserved.
